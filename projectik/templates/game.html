@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Игра</title>
+    <link rel="stylesheet" href="{{ url_for('get_custom_css') }}">
+</head>
+<body>
+    <div id="reset-info">
+        Сбросов: <span data-resets>{{ user.resets }}</span> |
+        Множитель: x<span data-multiplier>{{ "%.2f"|format(user.reset_bonus_multiplier) }}</span>
+    </div>
+
+    <div class="stats">
+        <h1>{{ user.username }}</h1>
+        <p data-coins>Монеты: {{ user.coins }}</p>
+        <p data-equipment>Уровень оборудования: {{ user.equipment_level }}</p>
+        <p>Статус бонуса: <span data-bonus-status>{{ bonus_status }}</span></p>
+    </div>
+
+    <div id="click-area"></div>
+    <p>Нажмите на круг, чтобы собрать монеты!</p>
+
+    <div class="controls">
+        <button id="upgrade-btn">
+            Улучшить оборудование<br>
+            <small>(Стоимость: <span id="upgrade-cost">({ (100 * (1.1 ** (user.equipment_level - 1))|round|int })</span> монет)</small>
+        </button>
+
+        <button id="reset-btn">
+            Сбросить прогресс<br>
+            <small>(Требуется: 1,000,000 монет)</small>
+        </button>
+    </div>
+
+    <div style="margin-top: 30px;">
+        <a href="{{ url_for('logout') }}">Выйти из аккаунта</a>
+    </div>
+
+    <script>
+        const updateUI = (data) => {
+            document.querySelector('[data-coins]').textContent = `Монеты: ${data.coins}`;
+            document.querySelector('[data-equipment]').textContent =
+                `Уровень оборудования: ${data.equipment_level}`;
+            document.querySelector('[data-resets]').textContent = data.resets;
+            document.querySelector('[data-multiplier]').textContent =
+                data.reset_bonus_multiplier.toFixed(2);
+        };
+
+        // Обработка кликов
+        document.getElementById('click-area').addEventListener('click', async () => {
+            try {
+                const response = await fetch('/click', { method: 'POST' });
+                const data = await response.json();
+                updateUI(data);
+            } catch (error) {
+                console.error('Ошибка:', error);
+            }
+        });
+
+        // Улучшение оборудования
+        document.getElementById('upgrade-btn').addEventListener('click', async () => {
+            try {
+                const response = await fetch('/upgrade', { method: 'POST' });
+                const data = await response.json();
+
+                if (response.ok) {
+                    updateUI(data);
+                    document.getElementById('upgrade-cost').textContent =
+                        Math.floor(100 * Math.pow(1.1, data.equipment_level - 1));
+                } else {
+                    alert(data.error);
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+            }
+        });
+
+        // Сброс прогресса
+        document.getElementById('reset-btn').addEventListener('click', async () => {
+            if(confirm('Вы уверены? Весь прогресс будет сброшен!')){
+                try {
+                    const response = await fetch('/reset', { method: 'POST' });
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        updateUI(data);
+                        document.getElementById('upgrade-cost').textContent =
+                            Math.floor(100 * Math.pow(1.1, data.equipment_level - 1));
+                    } else {
+                        alert(data.error);
+                    }
+                } catch (error) {
+                    console.error('Ошибка:', error);
+                }
+            }
+        });
+
+        // Обновление статуса бонуса
+        setInterval(async () => {
+            try {
+                const response = await fetch('/bonus_status');
+                const data = await response.json();
+                document.querySelector('[data-bonus-status]').textContent =
+                    data.bonus_active ? "Активен" : "Не активен";
+            } catch (error) {
+                console.error('Ошибка:', error);
+            }
+        }, 5000);
+    </script>
+</body>
+</html>
